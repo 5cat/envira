@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import inspect
+from types import NoneType
 from typing import ClassVar, Literal, Optional, Union, get_args, get_origin, Callable, Any
+
 import os
 
 from datetime import datetime
@@ -13,11 +17,13 @@ def is_type(type_: type, annot, _) -> bool:
     return annot_type is type_
 
 
+Handler = Callable[[Optional[str], Any, 'Env'], Any]
+
 class Env:
-    _handlers: ClassVar[dict[type, Callable]] = {}
+    _handlers: ClassVar[dict[type, Handler]] = {}
     _handlers_detectors: ClassVar[dict[type, Callable[[type, Any, Any], bool]]] = {}
 
-    def __init__(self):
+    def __init__(self, prefix: str = ''):
         annotations = {}
         for class_type in type(self).__mro__:
             if not issubclass(class_type, Env):
@@ -26,7 +32,7 @@ class Env:
         for var, annot in annotations.items():
             if get_origin(annot) is ClassVar:
                 continue
-            value = os.environ.get(var)
+            value = os.environ.get(prefix + var)
             if getattr(self, var, None) is not None and value is None:
                 pass
             else:
@@ -56,7 +62,7 @@ class Env:
     def add_handler(
         cls, type_: type, detector: Callable[[type, Any, Any], bool] = is_type
     ):
-        def decorator(handler: Callable) -> Callable:
+        def decorator(handler: Handler) -> Handler:
             cls._handlers[type_] = handler
             cls._handlers_detectors[type_] = detector
             return handler
@@ -65,7 +71,7 @@ class Env:
 
 
 @Env.add_handler(Union)
-def union_handler(value: Optional[str], annot, env):
+def union_handler(value: Optional[str], annot, env: Env):
     if value is None or value.lower() in ["none", "null"]:
         return None
 
@@ -73,8 +79,16 @@ def union_handler(value: Optional[str], annot, env):
     return env.handle(value, type_)
 
 
+@Env.add_handler(NoneType)
+def none_type_handler(value: Optional[str], _, __: Env):
+    if value is None or value.lower() in ["none", "null"]:
+        return None
+    raise ValueError("could not parse None type")
+
+
 @Env.add_handler(list)
-def list_handler(value: str, annot, env):
+def list_handler(value: Optional[str], annot, env: Env):
+    assert value is not None
     values = []
     annot_args = get_args(annot)
     if len(annot_args) == 0:
@@ -87,7 +101,8 @@ def list_handler(value: str, annot, env):
 
 
 @Env.add_handler(dict)
-def dict_handler(value: str, annot, env):
+def dict_handler(value: Optional[str], annot, env: Env):
+    assert value is not None
     values = {}
     annot_args = get_args(annot)
     if len(annot_args) == 0:
@@ -103,7 +118,8 @@ def dict_handler(value: str, annot, env):
 
 
 @Env.add_handler(datetime)
-def datetime_handler(value: str, _, __):
+def datetime_handler(value: Optional[str], _, __):
+    assert value is not None
     if len(set(value) - set('0123456789.')) == 0:
         return datetime.fromtimestamp(float(value))
     else:
@@ -122,7 +138,7 @@ def bool_handler(value: Optional[str], _, __):
 
 
 @Env.add_handler(Literal)
-def literal_handler(value: str, annot, env: 'Env'):
+def literal_handler(value: Optional[str], annot, env: Env):
     for allowed_value in get_args(annot):
         try:
             new_value = env.handle(value, type(allowed_value))

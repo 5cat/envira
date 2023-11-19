@@ -47,6 +47,21 @@ def test_optional_none():
     assert my_env.A is None
 
 
+def test_optional_none_explicit(monkeypatch):
+    class MyEnv(Env):
+        A: Optional[str]
+
+    monkeypatch.setenv("A", "none")
+
+    my_env = MyEnv()
+
+    assert my_env.A is None
+
+    monkeypatch.setenv("A", "null")
+    my_env = MyEnv()
+    assert my_env.A is None
+
+
 def test_optional(monkeypatch):
     monkeypatch.setenv("A", "aa")
 
@@ -204,13 +219,13 @@ def test_literal(monkeypatch):
     monkeypatch.setenv("B", "1")
 
     class MyEnv(Env):
-        A: Literal['DEBUG', 'INFO', 'WARN', 'ERROR']
+        A: Literal["DEBUG", "INFO", "WARN", "ERROR"]
         B: Literal[0, 1]
-        C: Literal[False, 's']
+        C: Literal[False, "s"]
 
     my_env = MyEnv()
 
-    assert my_env.A == 'DEBUG'
+    assert my_env.A == "DEBUG"
     assert my_env.B == 1
     assert my_env.C == False
 
@@ -220,6 +235,32 @@ def test_literal(monkeypatch):
 
     my_env = MyEnv()
 
-    assert my_env.A == 'WARN'
+    assert my_env.A == "WARN"
     assert my_env.B == 0
-    assert my_env.C == 's'
+    assert my_env.C == "s"
+
+    class MyEnv2(Env):
+        D: Literal[None, 64]
+
+    my_env = MyEnv2()
+
+    assert my_env.D is None
+
+    monkeypatch.setenv("D", "64")
+    my_env = MyEnv2()
+    assert my_env.D == 64
+
+    monkeypatch.setenv("D", "null")
+    my_env = MyEnv2()
+    assert my_env.D is None
+
+
+def test_prefix(monkeypatch):
+    monkeypatch.setenv("APP_A", "65")
+
+    class MyEnv(Env):
+        A: int
+
+    my_env = MyEnv(prefix="APP_")
+
+    assert my_env.A == 65
