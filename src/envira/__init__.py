@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import inspect
 from types import NoneType
-from typing import ClassVar, Literal, Optional, Union, get_args, get_origin, Callable, Any
+from typing import (
+    ClassVar,
+    Literal,
+    Optional,
+    Union,
+    get_args,
+    get_origin,
+    Callable,
+    Any,
+)
 
 import os
 
@@ -17,13 +26,14 @@ def is_type(type_: type, annot, _) -> bool:
     return annot_type is type_
 
 
-Handler = Callable[[Optional[str], Any, 'Env'], Any]
+Handler = Callable[[Optional[str], Any, "Env"], Any]
+
 
 class Env:
     _handlers: ClassVar[dict[type, Handler]] = {}
     _handlers_detectors: ClassVar[dict[type, Callable[[type, Any, Any], bool]]] = {}
 
-    def __init__(self, prefix: str = ''):
+    def __init__(self, prefix: str = ""):
         annotations = {}
         for class_type in type(self).__mro__:
             if not issubclass(class_type, Env):
@@ -76,6 +86,7 @@ class Env:
 class EnviraError(Exception):
     pass
 
+
 @Env.add_handler(Union)
 def union_handler(value: Optional[str], annot, env: Env):
     for allowed_types in reversed(get_args(annot)):
@@ -127,7 +138,7 @@ def dict_handler(value: Optional[str], annot, env: Env):
 @Env.add_handler(datetime)
 def datetime_handler(value: Optional[str], _, __):
     assert value is not None
-    if len(set(value) - set('0123456789.')) == 0:
+    if len(set(value) - set("0123456789.")) == 0:
         return datetime.fromtimestamp(float(value))
     else:
         return datetime.fromisoformat(value)
