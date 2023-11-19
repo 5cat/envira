@@ -56,7 +56,10 @@ class Env:
             if detector(type_, annot, value):
                 return self._handlers[type_](value, annot, self)
         else:
-            return annot(value)
+            try:
+                return annot(value)
+            except Exception:
+                raise EnviraError("could not type cast")
 
     @classmethod
     def add_handler(
@@ -70,20 +73,24 @@ class Env:
         return decorator
 
 
+class EnviraError(Exception):
+    pass
+
 @Env.add_handler(Union)
 def union_handler(value: Optional[str], annot, env: Env):
-    if value is None or value.lower() in ["none", "null"]:
-        return None
-
-    type_, _ = get_args(annot)
-    return env.handle(value, type_)
+    for allowed_types in reversed(get_args(annot)):
+        try:
+            return env.handle(value, allowed_types)
+        except EnviraError:
+            pass
+    raise EnviraError("value is not in the allowed types")
 
 
 @Env.add_handler(NoneType)
 def none_type_handler(value: Optional[str], _, __: Env):
     if value is None or value.lower() in ["none", "null"]:
         return None
-    raise ValueError("could not parse None type")
+    raise EnviraError("could not parse None type")
 
 
 @Env.add_handler(list)
@@ -134,16 +141,16 @@ def bool_handler(value: Optional[str], _, __):
         return True
     if value.lower() in ["false", "no", "0"]:
         return False
-    raise ValueError("could not parse bool")
+    raise EnviraError("could not parse bool")
 
 
 @Env.add_handler(Literal)
 def literal_handler(value: Optional[str], annot, env: Env):
-    for allowed_value in get_args(annot):
+    for allowed_value in reversed(get_args(annot)):
         try:
             new_value = env.handle(value, type(allowed_value))
             if new_value == allowed_value:
                 return new_value
-        except ValueError:
+        except EnviraError:
             pass
-    raise ValueError("value is not in the allowed values")
+    raise EnviraError("value is not in the allowed values")
