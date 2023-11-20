@@ -89,12 +89,19 @@ class EnviraError(Exception):
 
 @Env.add_handler(Union)
 def union_handler(value: Optional[str], annot, env: Env):
-    for allowed_types in reversed(get_args(annot)):
+    for allowed_types in get_args(annot):
         try:
             return env.handle(value, allowed_types)
         except EnviraError:
             pass
     raise EnviraError("value is not in the allowed types")
+
+
+@Env.add_handler(str)
+def str_handler(value: Optional[str], _, __: Env):
+    if value is None:
+        raise EnviraError("did not expect a None value")
+    return value
 
 
 @Env.add_handler(NoneType)
@@ -106,7 +113,8 @@ def none_type_handler(value: Optional[str], _, __: Env):
 
 @Env.add_handler(list)
 def list_handler(value: Optional[str], annot, env: Env):
-    assert value is not None
+    if value is None:
+        raise EnviraError("did not expect a None value")
     values = []
     annot_args = get_args(annot)
     if len(annot_args) == 0:
@@ -120,7 +128,8 @@ def list_handler(value: Optional[str], annot, env: Env):
 
 @Env.add_handler(dict)
 def dict_handler(value: Optional[str], annot, env: Env):
-    assert value is not None
+    if value is None:
+        raise EnviraError("did not expect a None value")
     values = {}
     annot_args = get_args(annot)
     if len(annot_args) == 0:
@@ -137,7 +146,8 @@ def dict_handler(value: Optional[str], annot, env: Env):
 
 @Env.add_handler(datetime)
 def datetime_handler(value: Optional[str], _, __):
-    assert value is not None
+    if value is None:
+        raise EnviraError("did not expect a None value")
     if len(set(value) - set("0123456789.")) == 0:
         return datetime.fromtimestamp(float(value))
     else:
@@ -157,7 +167,7 @@ def bool_handler(value: Optional[str], _, __):
 
 @Env.add_handler(Literal)
 def literal_handler(value: Optional[str], annot, env: Env):
-    for allowed_value in reversed(get_args(annot)):
+    for allowed_value in get_args(annot):
         try:
             new_value = env.handle(value, type(allowed_value))
             if new_value == allowed_value:

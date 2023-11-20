@@ -49,7 +49,7 @@ def test_optional_none():
 
 def test_optional_none_explicit(monkeypatch):
     class MyEnv(Env):
-        A: Optional[str]
+        A: Optional[int]
 
     monkeypatch.setenv("A", "none")
 
