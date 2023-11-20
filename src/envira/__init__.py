@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import inspect
-from types import NoneType
 from typing import (
     ClassVar,
     Literal,
@@ -38,7 +36,7 @@ class Env:
         for class_type in type(self).__mro__:
             if not issubclass(class_type, Env):
                 break
-            annotations.update(inspect.get_annotations(class_type))
+            annotations.update(class_type.__annotations__)
         for var, annot in annotations.items():
             if get_origin(annot) is ClassVar:
                 continue
@@ -54,7 +52,7 @@ class Env:
         cls._handlers_detectors = cls._handlers_detectors.copy()
 
     def __repr__(self) -> str:
-        annotations = inspect.get_annotations(type(self))
+        annotations = type(self).__annotations__
         values = ", ".join([f"{k}={getattr(self, k)}" for k in annotations])
         return f"{type(self).__name__}({values})"
 
@@ -73,7 +71,7 @@ class Env:
 
     @classmethod
     def add_handler(
-        cls, type_: type, detector: Callable[[type, Any, Any], bool] = is_type
+        cls, type_: Any, detector: Callable[[type, Any, Any], bool] = is_type
     ):
         def decorator(handler: Handler) -> Handler:
             cls._handlers[type_] = handler
@@ -104,7 +102,7 @@ def str_handler(value: Optional[str], _, __: Env):
     return value
 
 
-@Env.add_handler(NoneType)
+@Env.add_handler(type(None))
 def none_type_handler(value: Optional[str], _, __: Env):
     if value is None or value.lower() in ["none", "null"]:
         return None

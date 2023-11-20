@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal, Optional, Dict, List
 from envira import Env
 
 from enum import Enum
@@ -88,7 +88,7 @@ def test_list_int(monkeypatch):
     monkeypatch.setenv("A", "1;2;3")
 
     class MyEnv(Env):
-        A: list[int]
+        A: List[int]
 
     my_env = MyEnv()
 
@@ -110,7 +110,7 @@ def test_dict_int_float(monkeypatch):
     monkeypatch.setenv("A", "1=32.5,7=5.63")
 
     class MyEnv(Env):
-        A: dict[int, float]
+        A: Dict[int, float]
 
     my_env = MyEnv()
 
@@ -185,9 +185,9 @@ def test_bool_true(monkeypatch):
         C: bool
 
     my_env = MyEnv()
-    assert my_env.A == True
-    assert my_env.B == True
-    assert my_env.C == True
+    assert my_env.A is True
+    assert my_env.B is True
+    assert my_env.C is True
 
 
 def test_bool_false(monkeypatch):
@@ -201,9 +201,9 @@ def test_bool_false(monkeypatch):
         C: bool
 
     my_env = MyEnv()
-    assert my_env.A == False
-    assert my_env.B == False
-    assert my_env.C == False
+    assert my_env.A is False
+    assert my_env.B is False
+    assert my_env.C is False
 
 
 def test_bool_empty():
@@ -211,7 +211,7 @@ def test_bool_empty():
         A: bool
 
     my_env = MyEnv()
-    assert my_env.A == False
+    assert my_env.A is False
 
 
 def test_literal(monkeypatch):
@@ -227,7 +227,7 @@ def test_literal(monkeypatch):
 
     assert my_env.A == "DEBUG"
     assert my_env.B == 1
-    assert my_env.C == False
+    assert my_env.C is False
 
     monkeypatch.setenv("A", "WARN")
     monkeypatch.setenv("B", "0")
@@ -267,45 +267,47 @@ def test_prefix(monkeypatch):
 
 
 def test_type_casting(monkeypatch):
-    class O:
+    class Point:
         def __init__(self, value: str):
             self.x, self.y = value.split(",")
 
-        def __eq__(self, __value: "O") -> bool:
+        def __eq__(self, __value: object) -> bool:
+            assert isinstance(__value, Point)
             return self.x == __value.x and self.y == __value.y
 
     class MyEnv(Env):
-        A: O
+        A: Point
 
     monkeypatch.setenv("A", "4,3")
 
     my_env = MyEnv()
 
-    assert my_env.A == O("4,3")
+    assert my_env.A == Point("4,3")
 
 
 def test_handler(monkeypatch):
-    class O:
+    class Point:
         def __init__(self, x: int, y: int):
             self.x = x
             self.y = y
 
-        def __eq__(self, __value: "O") -> bool:
+        def __eq__(self, __value: object) -> bool:
+            assert isinstance(__value, Point)
             return self.x == __value.x and self.y == __value.y
 
     class MyEnv(Env):
-        A: O
+        A: Point
 
     monkeypatch.setenv("A", "4,3")
 
-    @MyEnv.add_handler(O)
+    @MyEnv.add_handler(Point)
     def _(value: Optional[str], annot, env):
         assert value is not None
-        assert annot is O
+        assert annot is Point
         assert type(env) is MyEnv
         x, y = value.split(",")
-        return O(int(x), int(y))
+        return Point(int(x), int(y))
 
     my_env = MyEnv()
 
-    assert my_env.A == O(4, 3)
+    assert my_env.A == Point(4, 3)
