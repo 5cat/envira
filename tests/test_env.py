@@ -264,3 +264,48 @@ def test_prefix(monkeypatch):
     my_env = MyEnv(prefix="APP_")
 
     assert my_env.A == 65
+
+
+def test_type_casting(monkeypatch):
+    class O:
+        def __init__(self, value: str):
+            self.x, self.y = value.split(",")
+
+        def __eq__(self, __value: "O") -> bool:
+            return self.x == __value.x and self.y == __value.y
+
+    class MyEnv(Env):
+        A: O
+
+    monkeypatch.setenv("A", "4,3")
+
+    my_env = MyEnv()
+
+    assert my_env.A == O("4,3")
+
+
+def test_handler(monkeypatch):
+    class O:
+        def __init__(self, x: int, y: int):
+            self.x = x
+            self.y = y
+
+        def __eq__(self, __value: "O") -> bool:
+            return self.x == __value.x and self.y == __value.y
+
+    class MyEnv(Env):
+        A: O
+
+    monkeypatch.setenv("A", "4,3")
+
+    @MyEnv.add_handler(O)
+    def _(value: Optional[str], annot, env):
+        assert value is not None
+        assert annot is O
+        assert type(env) is MyEnv
+        x, y = value.split(",")
+        return O(int(x), int(y))
+
+    my_env = MyEnv()
+
+    assert my_env.A == O(4, 3)
